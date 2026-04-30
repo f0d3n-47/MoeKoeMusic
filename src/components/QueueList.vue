@@ -2,10 +2,31 @@
     <transition name="fade">
         <div v-if="showQueue" class="queue-popup">
             <div class="queue-header">
-                <h3>
-                    <span>{{ $t('bo-fang-lie-biao') }}</span> ({{ musicQueueStore.queue.length }})
-                    <i class="fas fa-trash-alt close-store" @click="musicQueueStore.clearQueue()" title="close"></i>
-                </h3>
+                <div class="queue-title-row">
+                    <h3>
+                        <span>{{ $t('bo-fang-lie-biao') }}</span> ({{ musicQueueStore.queue.length }})
+                    </h3>
+                    <button class="queue-icon-btn danger" @click="clearCurrentQueue" title="清空当前播放列表">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+                <div class="queue-switch-row">
+                    <select class="queue-select" :value="musicQueueStore.activeQueueId" @change="handleQueueSwitch">
+                        <option v-for="queue in musicQueueStore.queues" :key="queue.id" :value="queue.id">
+                            {{ queue.name }} ({{ queue.songs.length }})
+                        </option>
+                    </select>
+                    <button class="queue-icon-btn" @click="createQueue" title="新建播放列表">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                    <button class="queue-icon-btn" @click="renameQueue" title="重命名播放列表">
+                        <i class="fas fa-pen"></i>
+                    </button>
+                    <button class="queue-icon-btn danger" :disabled="musicQueueStore.queues.length <= 1"
+                        @click="deleteQueue" title="删除播放列表">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
             </div>
 
             <RecycleScroller :items="musicQueueStore.queue" :item-size="50" key-field="id" :buffer="200"
@@ -45,11 +66,59 @@ const props = defineProps({
     }
 });
 
-const emit = defineEmits(['update:showQueue', 'addSongToQueue', 'addCloudMusicToQueue', 'addLocalMusicToQueue']);
+const emit = defineEmits(['update:showQueue', 'addSongToQueue', 'addCloudMusicToQueue', 'addLocalMusicToQueue', 'queue-switched']);
 
 const musicQueueStore = useMusicQueueStore();
 const queueScroller = ref(null);
 const showQueue = ref(false);
+
+const scrollToCurrentSong = () => {
+    const currentIndex = musicQueueStore.queue.findIndex(song => song.hash === props.currentSong.hash);
+    if (currentIndex !== -1) {
+        queueScroller.value?.scrollToItem(Math.max(0, currentIndex - 3));
+    }
+};
+
+const handleQueueSwitch = async (event) => {
+    const switched = musicQueueStore.switchQueue(event.target.value);
+    if (!switched) return;
+    emit('queue-switched');
+    await nextTick();
+    scrollToCurrentSong();
+};
+
+const createQueue = async () => {
+    const name = await window.$modal.prompt('请输入播放列表名称', `播放列表 ${musicQueueStore.queues.length + 1}`);
+    if (!name) return;
+    musicQueueStore.createQueue(name);
+    emit('queue-switched');
+    await nextTick();
+    scrollToCurrentSong();
+};
+
+const renameQueue = async () => {
+    const currentName = musicQueueStore.activeQueueName;
+    const name = await window.$modal.prompt('请输入新的播放列表名称', currentName);
+    if (!name || name === currentName) return;
+    musicQueueStore.renameQueue(musicQueueStore.activeQueueId, name);
+};
+
+const deleteQueue = async () => {
+    if (musicQueueStore.queues.length <= 1) return;
+    const confirmed = await window.$modal.confirm(`确定删除播放列表「${musicQueueStore.activeQueueName}」吗？`);
+    if (!confirmed) return;
+    musicQueueStore.deleteQueue(musicQueueStore.activeQueueId);
+    emit('queue-switched');
+    await nextTick();
+    scrollToCurrentSong();
+};
+
+const clearCurrentQueue = async () => {
+    if (musicQueueStore.queue.length === 0) return;
+    const confirmed = await window.$modal.confirm(`确定清空「${musicQueueStore.activeQueueName}」吗？`);
+    if (!confirmed) return;
+    musicQueueStore.clearQueue();
+};
 
 // 从队列中删除歌曲
 const removeSongFromQueue = (index) => {
@@ -80,8 +149,7 @@ const openQueue = async () => {
     if (showQueue.value) {
         await nextTick();
         setTimeout(() => {
-            const currentIndex = musicQueueStore.queue.findIndex(song => song.hash === props.currentSong.hash);
-            queueScroller.value.scrollToItem(currentIndex - 3);
+            scrollToCurrentSong();
         }, 100);
     }
 };
@@ -94,6 +162,7 @@ const handleClickOutside = (event) => {
 };
 
 onMounted(() => {
+    musicQueueStore.initQueues();
     document.addEventListener('click', handleClickOutside);
 });
 
@@ -111,7 +180,7 @@ defineExpose({
     position: fixed;
     right: 20px;
     bottom: 100px;
-    width: 300px;
+    width: 360px;
     max-height: 400px;
     background: #fff;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
@@ -122,9 +191,6 @@ defineExpose({
 }
 
 .queue-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
     margin-bottom: 10px;
     position: sticky;
     top: 0px;
@@ -137,6 +203,56 @@ defineExpose({
         margin: 0;
         font-size: 1.2em;
         color: var(--text-color);
+    }
+}
+
+.queue-title-row,
+.queue-switch-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.queue-title-row {
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.queue-select {
+    flex: 1;
+    min-width: 0;
+    height: 30px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--text-color);
+    padding: 0 8px;
+}
+
+.queue-icon-btn {
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 6px;
+    background: var(--background-color);
+    color: var(--primary-color);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    &:hover:not(:disabled) {
+        background: var(--secondary-color);
+        color: #fff;
+    }
+
+    &:disabled {
+        cursor: not-allowed;
+        opacity: 0.45;
+    }
+
+    &.danger {
+        color: #ff5f57;
     }
 }
 
@@ -178,7 +294,7 @@ defineExpose({
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    width: 250px;
+    width: 285px;
 }
 
 .queue-artist {

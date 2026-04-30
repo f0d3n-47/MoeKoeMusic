@@ -252,7 +252,9 @@ export default function useSongQueue(t, musicQueueStore, queueList = null) {
             if (existingSongIndex === -1) {
                 const currentIndex = musicQueueStore.queue.findIndex(song => song.hash == currentSongHash);
                 if (currentIndex !== -1) {
-                    musicQueueStore.queue.splice(currentIndex + 1, 0, song);
+                    const updatedQueue = [...musicQueueStore.queue];
+                    updatedQueue.splice(currentIndex + 1, 0, song);
+                    musicQueueStore.setQueue(updatedQueue);
                 } else {
                     musicQueueStore.addSong(song);
                 }
@@ -344,7 +346,9 @@ export default function useSongQueue(t, musicQueueStore, queueList = null) {
             if (existingSongIndex === -1) {
                 const currentIndex = musicQueueStore.queue.findIndex(song => song.hash == currentSongHash);
                 if (currentIndex !== -1) {
-                    musicQueueStore.queue.splice(currentIndex + 1, 0, song);
+                    const updatedQueue = [...musicQueueStore.queue];
+                    updatedQueue.splice(currentIndex + 1, 0, song);
+                    musicQueueStore.setQueue(updatedQueue);
                 } else {
                     musicQueueStore.addSong(song);
                 }
@@ -374,7 +378,8 @@ export default function useSongQueue(t, musicQueueStore, queueList = null) {
         }
 
         const currentIndex = musicQueueStore.queue.findIndex(song => song.hash === currentSong.value.hash);
-        musicQueueStore.queue.splice(currentIndex !== -1 ? currentIndex + 1 : musicQueueStore.queue.length, 0, {
+        const updatedQueue = [...musicQueueStore.queue];
+        updatedQueue.splice(currentIndex !== -1 ? currentIndex + 1 : musicQueueStore.queue.length, 0, {
             id: musicQueueStore.queue.length + 1,
             hash: hash,
             name: name,
@@ -382,6 +387,7 @@ export default function useSongQueue(t, musicQueueStore, queueList = null) {
             author: author,
             timeLength: timeLength,
         });
+        musicQueueStore.setQueue(updatedQueue);
 
         NextSong.value.push({
             id: musicQueueStore.queue.length + 1,
@@ -442,7 +448,7 @@ export default function useSongQueue(t, musicQueueStore, queueList = null) {
             songs = newSongs;
         }
 
-        musicQueueStore.queue = songs;
+        musicQueueStore.setQueue(songs);
         return songs;
     };
 
@@ -473,7 +479,7 @@ export default function useSongQueue(t, musicQueueStore, queueList = null) {
             queueSongs = newSongs;
         }
 
-        musicQueueStore.queue = queueSongs;
+        musicQueueStore.setQueue(queueSongs);
         return queueSongs;
     };
 

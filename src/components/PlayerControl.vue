@@ -98,7 +98,8 @@
 
     <!-- 播放队列 -->
     <QueueList :current-song="currentSong" @add-song-to-queue="onQueueSongAdd"
-        @add-cloud-music-to-queue="onQueueCloudSongAdd" @add-local-music-to-queue="onQueueLocalSongAdd" ref="queueList" />
+        @add-cloud-music-to-queue="onQueueCloudSongAdd" @add-local-music-to-queue="onQueueLocalSongAdd"
+        @queue-switched="handleQueueSwitched" ref="queueList" />
 
     <!-- 全屏歌词界面 -->
     <transition name="slide-up">
@@ -435,6 +436,13 @@ const mediaSession = useMediaSession();
 
 const songQueue = useSongQueue(t, musicQueueStore, queueList);
 const { currentSong, NextSong, addSongToQueue, addCloudMusicToQueue, addLocalMusicToQueue, addLocalPlaylistToQueue, addToNext, getPlaylistAllSongs, addPlaylistToQueue, addCloudPlaylistToQueue } = songQueue;
+
+const handleQueueSwitched = () => {
+    clearAutoSwitchTimer();
+    NextSong.value = [];
+    playedSongsStack.value = [];
+    currentStackIndex.value = -1;
+};
 
 // 添加自动切换定时器引用
 let autoSwitchTimer = null;
@@ -1183,6 +1191,7 @@ const searchSong = (songName) => {
 // 组件挂载
 onMounted(() => {
     console.log('[PlayerControl] 组件挂载');
+    musicQueueStore.initQueues();
 
     // 初始化音频设置
     audioController.initAudio();
